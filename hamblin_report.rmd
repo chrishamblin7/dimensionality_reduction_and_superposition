@@ -453,7 +453,7 @@ layout(layout_m)
 #with all points
 for (i in 1:length(embedding_ds)) {
   d <- embedding_ds[i]
-  print(d)
+  #print(d)
   for (j in 1:length(sparsities)) {
     s <- sparsities[j]
     data <- all_data[[embedding_names[i]]][j,,]
@@ -472,9 +472,9 @@ for (i in 1:length(embedding_ds)) {
 }
 ```
 
+Looks like there are substantial artifacts with respect to the lower embedding dimensions, but without a consistent pattern. The low importance features, which should be mapped to 0 are smeared out close to each other, despite the very small min_dist hyperparameter. I think if I knew a little more about the UMAP algorithm I could make sense of this.
 
-
-Now let's check excluding the origin points, as before. If there are less than 15 points to plot, we will decrease the number of neighbors to the number of points -1;
+Now let's check the configuration excluding the origin points, as before. If there are less than 15 points to plot, we will decrease the number of neighbors to the number of points -1;
 
 ```{r,echo=FALSE}
 
@@ -483,19 +483,27 @@ par(mar=c(1.5,1.5,1.5,1.5),pty="s")
 layout_m <- matrix(c(1:36), 
                    nrow = 6, ncol = 6, byrow = TRUE)
 layout(layout_m)
+#with nonzero points only
 
-#with all points
+
 for (i in 1:length(embedding_ds)) {
   d <- embedding_ds[i]
-  print(d)
+
   for (j in 1:length(sparsities)) {
     s <- sparsities[j]
     data <- all_data[[embedding_names[i]]][j,,]
-    
+    thresh <- mean(abs(data[1,]))/20
+    rep_indices <- c()
+    for (k in 1:nrow(data)) {
+      if (mean(abs(data[k,])) > thresh) {
+        rep_indices <- c(rep_indices,k)
+      }
+    }
+    data <- data[rep_indices,]
     umap_config <- umap.defaults
-    umap_config$min_dist <-  .0001
+    umap_config$n_neighbors <- min(nrow(data)-1,umap_config$n_neighbors)
     umapFit <- umap(data,config=umap_config)
-
+    
     plot(umapFit$layout, 
          main = paste(d,s,sep=' : '),
          xlab = '',
@@ -504,4 +512,10 @@ for (i in 1:length(embedding_ds)) {
          col = inferno(60))
   }
 }
+
+
 ```
+
+As with MDS, we only see obvious artifacts in particular instances (20 dims : .05 sparsity). 
+
+In conclusion, I dont think there are obvious worries we should have with respect to visualizing latent spaces that are in superposition. It would be nice to do some experiments like this with real data, that was my original idea, but is very tricky to define what the 'real' high-dimensional features are in such a case. I think that is why the authors choose to do their experiments by presupposing the high-dimensional features a priori. Look forwarding to chatting with you about this.
